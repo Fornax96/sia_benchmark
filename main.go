@@ -82,8 +82,6 @@ func main() {
 			formatData((metrics.FileUploadedBytes-lastSize)/60),
 		)
 		lastSize = metrics.FileUploadedBytes
-
-		fmt.Println(metrics)
 	}
 }
 
