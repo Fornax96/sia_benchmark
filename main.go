@@ -58,7 +58,7 @@ func main() {
 	var lastSize uint64
 	for {
 		// Sleep until the next full minute
-		time.Sleep(time.Until(time.Now().Add(time.Second).Truncate(time.Second)))
+		time.Sleep(time.Until(time.Now().Add(time.Minute).Truncate(time.Minute)))
 
 		metrics, err := collectMetrics(sc)
 		if err != nil {
