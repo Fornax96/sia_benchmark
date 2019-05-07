@@ -58,7 +58,7 @@ func main() {
 	var lastSize uint64
 	for {
 		// Sleep until the next full minute
-		time.Sleep(time.Until(time.Now().Add(time.Minute).Truncate(time.Minute)))
+		time.Sleep(time.Until(time.Now().Add(time.Second).Truncate(time.Second)))
 
 		metrics, err := collectMetrics(sc)
 		if err != nil {
@@ -114,15 +114,15 @@ func collectMetrics(sc *sia.Client) (metrics Metrics, err error) {
 
 	for _, contract := range append(contracts.ActiveContracts, contracts.InactiveContracts...) {
 		metrics.ContractTotalSize += contract.Size
-		metrics.ContractFeeSpending.Add(contract.Fees)
-		metrics.ContractStorageSpending.Add(contract.StorageSpending)
-		metrics.ContractUploadSpending.Add(contract.UploadSpending)
-		metrics.ContractDownloadSpending.Add(contract.DownloadSpending)
-		metrics.ContractRemainingFunds.Add(contract.RenterFunds)
+		metrics.ContractFeeSpending = metrics.ContractFeeSpending.Add(contract.Fees)
+		metrics.ContractStorageSpending = metrics.ContractStorageSpending.Add(contract.StorageSpending)
+		metrics.ContractUploadSpending = metrics.ContractUploadSpending.Add(contract.UploadSpending)
+		metrics.ContractDownloadSpending = metrics.ContractDownloadSpending.Add(contract.DownloadSpending)
+		metrics.ContractRemainingFunds = metrics.ContractRemainingFunds.Add(contract.RenterFunds)
 	}
 
 	// Add up the totals
-	metrics.ContractTotalSpending.
+	metrics.ContractTotalSpending = metrics.ContractTotalSpending.
 		Add(metrics.ContractFeeSpending).
 		Add(metrics.ContractStorageSpending).
 		Add(metrics.ContractUploadSpending).
