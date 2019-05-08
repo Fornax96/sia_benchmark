@@ -79,9 +79,9 @@ func main() {
 			metrics.APILatency,
 			metrics.FileCount,
 			metrics.FileUploadsInProgressCount,
-			formatData((metrics.FileUploadedBytes-lastSize)/60),
+			formatData((metrics.ContractTotalSize-lastSize)/60),
 		)
-		lastSize = metrics.FileUploadedBytes
+		lastSize = metrics.ContractTotalSize
 	}
 }
 
