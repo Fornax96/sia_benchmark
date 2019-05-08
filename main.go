@@ -6,13 +6,55 @@ import (
 	"os"
 	"time"
 
+	"github.com/Fornaxian/config"
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
 
-func main() {
+type Configuration struct {
+	SiaAPIURL            string `toml:"sia_api_url"`
+	SiaAPIPassword       string `toml:"sia_api_password"`
+	SiaAPIUserAgent      string `toml:"sia_api_user_agent"`
+	StopSiaOnFailure     bool   `toml:"stop_sia_on_failure"`
+	Allowance            int    `toml:"allowance"`
+	AllowancePeriod      int    `toml:"allowance_period"`
+	HostCount            int    `toml:"host_count"`
+	FileDataPieces       int    `toml:"file_data_pieces"`
+	FileParityPieces     int    `toml:"file_parity_pieces"`
+	FileSize             uint64 `toml:"file_size"`
+	MaxConcurrentUploads int    `toml:"max_concurrent_uploads"`
+	MinUploadRate        uint64 `toml:"min_upload_rate"`
+	MeasurementInterval  uint   `toml:"measurement_interval"`
+}
 
-	sc := sia.New("127.0.0.1:9980")
-	sc.Password = "d0290de6ff4731a4de8da2f68cb7c3fe"
+const defaultConfig = `# Sia benchmark tool configuration
+sia_api_url            = "127.0.0.1:9980"
+sia_api_password       = ""
+sia_api_user_agent     = "Sia-Agent"
+stop_sia_on_failure    = true # Whether to stop the Sia daemon if the test fails
+allowance              = 1000 # SC
+allowance_period       = 12096 # In blocks, this is three months
+host_count             = 50
+file_data_pieces       = 10
+file_parity_pieces     = 20
+file_size              = 1000000000 # This is 1 GB
+max_concurrent_uploads = 10
+min_upload_rate        = 1000000 # 1 MB per second
+measurement_interval   = 60 # seconds
+`
+
+func main() {
+	// Load the configuration
+	var conf = Configuration{}
+	_, err := config.New(defaultConfig, "", "benchmark.toml", &conf, true)
+	if err != nil {
+		panic(err)
+	}
+
+	var interval = time.Duration(conf.MeasurementInterval) * time.Second
+
+	sc := sia.New(conf.SiaAPIURL)
+	sc.Password = conf.SiaAPIPassword
+	sc.UserAgent = conf.SiaAPIUserAgent
 
 	version, err := sc.DaemonVersionGet()
 	if err != nil {
@@ -56,9 +98,13 @@ func main() {
 	// We store all this in a Metrics struct. When the information is complete
 	// we write the metrics to the CSV
 	var lastSize uint64
+	var bwLog = make([]uint64, 3600/conf.MeasurementInterval)
+	var bwLogIndex = -1
+	var bwAverage uint64
+	var bwFirstCycle = true
 	for {
 		// Sleep until the next full minute
-		time.Sleep(time.Until(time.Now().Add(time.Minute).Truncate(time.Minute)))
+		time.Sleep(time.Until(time.Now().Add(interval).Truncate(interval)))
 
 		metrics, err := collectMetrics(sc)
 		if err != nil {
@@ -74,13 +120,55 @@ func main() {
 			fmt.Printf("Error while flushing CSV: %s\n", err)
 		}
 
-		fmt.Printf("[%s] Latency: %s Files: %d, Uploading: %d, Speed: %s/s\n",
+		bwLogIndex++
+		if bwLogIndex == len(bwLog) {
+			bwLogIndex = 0
+			bwFirstCycle = false
+		}
+
+		if lastSize != 0 {
+			bwLog[bwLogIndex] = (metrics.ContractTotalSize - lastSize) / 60
+		}
+
+		// Calculate average bandwidth
+		bwAverage = 0
+		for _, bw := range bwLog {
+			bwAverage += bw
+		}
+		if bwFirstCycle && bwLogIndex != 0 {
+			bwAverage = bwAverage / uint64(bwLogIndex)
+		} else {
+			bwAverage = bwAverage / uint64(len(bwLog))
+		}
+
+		fmt.Printf("[%s] Latency: %s Files: %d, Uploading: %d, Speed current: %s/s, Average: %s/s\n",
 			metrics.Timestamp.Format("2006-01-02 15:04:05 -0700 MST"),
 			metrics.APILatency,
 			metrics.FileCount,
 			metrics.FileUploadsInProgressCount,
-			formatData((metrics.ContractTotalSize-lastSize)/60),
+			formatData(bwLog[bwLogIndex]),
+			formatData(bwAverage),
 		)
+
+		// Exit the test if bandwidth falls below the configured threshold
+		if !bwFirstCycle && bwAverage < conf.MinUploadRate {
+			fmt.Printf(
+				"Average upload speed of %s/s fell below configured threshold of %s/s\n",
+				formatData(bwAverage), formatData(conf.MinUploadRate))
+			fmt.Printf(
+				"The test has ended with a total of %s uploaded in file data and %s uploaded in contract data\n",
+				formatData(metrics.FileTotalBytes), formatData(metrics.ContractTotalSize))
+
+			if conf.StopSiaOnFailure {
+				fmt.Println("Shutting down Sia...")
+				err = sc.DaemonStopGet()
+				if err != nil {
+					fmt.Printf("Error stopping Sia daemon: %s\n", err)
+				}
+			}
+			os.Exit(0)
+		}
+
 		lastSize = metrics.ContractTotalSize
 	}
 }
@@ -166,13 +254,13 @@ func formatData(v uint64) string {
 		}
 		return fmt.Sprintf(f+" "+u, n)
 	}
-	if v > 1e12 {
+	if v >= 1e12 {
 		return fmtSize(float64(v)/1e12, "TB")
-	} else if v > 1e9 {
+	} else if v >= 1e9 {
 		return fmtSize(float64(v)/1e9, "GB")
-	} else if v > 1e6 {
+	} else if v >= 1e6 {
 		return fmtSize(float64(v)/1e6, "MB")
-	} else if v > 1e3 {
+	} else if v >= 1e3 {
 		return fmtSize(float64(v)/1e3, "kB")
 	}
 	return fmt.Sprintf("%5d  B", v)
