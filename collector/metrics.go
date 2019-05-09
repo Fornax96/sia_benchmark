@@ -1,4 +1,4 @@
-package main
+package collector
 
 import (
 	"encoding/csv"
@@ -43,6 +43,8 @@ type Metrics struct {
 	RenterUnspent          types.Currency `csv:"renter_unspent"`
 }
 
+// MetricsHeaders returns all the CSV headers of the Metrics struct so they can
+// be written at the beginning of a new CSV file
 func MetricsHeaders() (headers []string) {
 	t := reflect.TypeOf(Metrics{})
 

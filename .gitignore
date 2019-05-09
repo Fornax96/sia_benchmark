@@ -2,3 +2,5 @@ metrics.csv
 .~lock.metrics.csv#
 main
 benchmark.toml
+upload_queue
+upload_queue/*
