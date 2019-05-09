@@ -11,11 +11,12 @@ import (
 
 	"gitlab.com/NebulousLabs/fastrand"
 
-	"fornaxian.com/siametricscollector/collector"
+	"github.com/Fornax96/sia_benchmark/collector"
 	"github.com/Fornaxian/config"
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
 
+// Configuration for the benchmark
 type Configuration struct {
 	// Sia API config
 	SiaAPIURL       string `toml:"sia_api_url"`
@@ -198,14 +199,24 @@ func main() {
 		// Print test statistics
 		if bwLogIndex%30 == 0 {
 			// Print headers every 30 rows
-			fmt.Printf("%-30s  %-14s  %-5s  %-9s  %-9s  %-13s  %-10s  %-13s  %-13s\n",
-				"Timestamp", "Latency", "Files", "Uploading", "File Size", "Contract Size", "Efficiency", "Current Speed", "Average Speed",
+			fmt.Printf("%-30s  %-14s  %-5s  %-9s  %-9s  %-13s  %-10s  %-13s  %-13s  %-10s  %-10s\n",
+				"Timestamp",
+				"Latency",
+				"Files",
+				"Uploading",
+				"File Size",
+				"Contract Size",
+				"Efficiency",
+				"Current Speed",
+				"Average Speed",
+				"Spent",
+				"Unspent",
 			)
 		}
 		if metrics.ContractTotalSize == 0 {
 			metrics.ContractTotalSize = 1 // Avoid division by zero
 		}
-		fmt.Printf("%-30s  %-14s  %5d  %9d  %9s  %13s  %9.2f%%  %11s/s  %11s/s\n",
+		fmt.Printf("%-30s  %-14s  %5d  %9d  %9s  %13s  %9.2f%%  %11s/s  %11s/s  %10s  %10s\n",
 			metrics.Timestamp.Format("2006-01-02 15:04:05 -0700 MST"),
 			metrics.APILatency,
 			metrics.FileCount,
@@ -215,6 +226,8 @@ func main() {
 			(float64(metrics.FileTotalBytes)/float64(metrics.ContractTotalSize))*100,
 			formatData(bwLog[bwLogIndex]),
 			formatData(bwAverage),
+			metrics.ContractTotalSpending.HumanString(),
+			metrics.ContractRemainingFunds.HumanString(),
 		)
 
 		// This function exits the program if the exit conditions are met. The
@@ -290,7 +303,7 @@ func testExitCondition(
 			formatData(metrics.FileTotalBytes), formatData(conf.SuccessSizeThreshold))
 		fmt.Printf(
 			"The test has ended with a total of %s uploaded in contract data and %s spent\n",
-			formatData(metrics.ContractTotalSize), metrics.ContractTotalSpending)
+			formatData(metrics.ContractTotalSize), metrics.ContractTotalSpending.HumanString())
 
 		if conf.StopSiaOnExit {
 			fmt.Println("Shutting down Sia...")
