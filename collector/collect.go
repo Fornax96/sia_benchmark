@@ -31,7 +31,7 @@ func CollectMetrics(sc *sia.Client) (metrics Metrics, err error) {
 	}
 
 	// Collect contract stats
-	contracts, err := sc.RenterContractsGet()
+	contracts, err := sc.RenterInactiveContractsGet()
 	if err != nil {
 		return metrics, err
 	}
