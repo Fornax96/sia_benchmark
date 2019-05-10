@@ -71,7 +71,7 @@ func FinishUploads(sc *sia.Client, uploadsDir string) error {
 			return err
 		}
 
-		if siafile.File.UploadProgress > 99.9 { // comparing floats.. dangerous
+		if siafile.File.UploadProgress > 99.99 && siafile.File.MaxHealthPercent > 99.99 {
 			log.Debug("File '%s' is done uploading, removing local copy", file.Name())
 			// Upload is done, remove source file
 			err = os.Remove(uploadsDir + "/" + file.Name())

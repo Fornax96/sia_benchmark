@@ -47,6 +47,8 @@ type Configuration struct {
 
 	// Exit condition
 	StopSiaOnExit bool `toml:"stop_sia_on_exit"`
+
+	LoggingVerbosity int `toml:"logging_verbosity"`
 }
 
 const defaultConfig = `# Sia benchmark tool configuration
@@ -78,6 +80,8 @@ file_uploads_dir       = "upload_queue"
 
 # Exit condition. Whether to stop the Sia daemon if the test ends
 stop_sia_on_exit       = true
+
+logging_verbosity      = 3 # 4 = debug, 3 = info, 2 = warning, 1 = error
 `
 
 func main() {
@@ -87,6 +91,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	log.SetLogLevel(conf.LoggingVerbosity)
 
 	// Check if uploads directory exists
 	dir, err := os.Stat(conf.FileUploadsDir)
@@ -253,7 +258,7 @@ func main() {
 				go func() {
 					err = collector.UploadFile(
 						sc,
-						conf.FileUploadsDir+"/"+strconv.Itoa(fastrand.Intn(999999))+".dat",
+						conf.FileUploadsDir+"/"+strconv.Itoa(fastrand.Intn(999999999))+".dat",
 						conf.FileDataPieces,
 						conf.FileParityPieces,
 						conf.FileSize,
