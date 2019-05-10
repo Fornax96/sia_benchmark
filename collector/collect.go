@@ -3,7 +3,7 @@ package collector
 import (
 	"time"
 
-	"github.com/NebulousLabs_backup/Sia/types"
+	"gitlab.com/NebulousLabs/Sia/node/api"
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
 
@@ -38,15 +38,15 @@ func CollectMetrics(sc *sia.Client) (metrics Metrics, err error) {
 	}
 
 	// Record active hosts
-	activeHosts := make(map[types.SiaPublicKey]struct{})
+	activeHosts := make(map[string]struct{})
 	for _, contract := range contracts.ActiveContracts {
-		activeHosts[contract.HostPublicKey] = struct{}{}
+		activeHosts[contract.HostPublicKey.String()] = struct{}{}
 	}
 
 	// Breakout renewed contracts and disabled Contracts
-	var disabledContracts, renewedContracts modules.RenterContracts
+	var disabledContracts, renewedContracts []api.RenterContract
 	for _, contract := range contracts.InactiveContracts {
-		if _, ok := activeHosts[contract.HostPublicKey]; ok {
+		if _, ok := activeHosts[contract.HostPublicKey.String()]; ok {
 			renewedContracts = append(renewedContracts, contract)
 			continue
 		}
