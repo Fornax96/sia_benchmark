@@ -21,7 +21,8 @@ type Metrics struct {
 	FileUploadedBytes          uint64 `csv:"file_uploaded_bytes"`
 
 	ContractCountActive      int            `csv:"contract_count_active"`
-	ContractCountInactive    int            `csv:"contract_count_inactive"`
+	ContractCountRenewed     int            `csv:"contract_count_renewed"`
+	ContractCountDisabled    int            `csv:"contract_count_disabled"`
 	ContractTotalSize        uint64         `csv:"contract_total_size"`
 	ContractTotalSpending    types.Currency `csv:"contract_total_spending"`
 	ContractFeeSpending      types.Currency `csv:"contract_fee_spending"`
@@ -67,7 +68,8 @@ func (m Metrics) Values() (values []string) {
 		strconv.FormatUint(m.FileUploadsInProgressCount, 10),
 		strconv.FormatUint(m.FileUploadedBytes, 10),
 		strconv.Itoa(m.ContractCountActive),
-		strconv.Itoa(m.ContractCountInactive),
+		strconv.Itoa(m.ContractCountRenewed),
+		strconv.Itoa(m.ContractCountDisabled),
 		strconv.FormatUint(m.ContractTotalSize, 10),
 		m.ContractTotalSpending.String(),
 		m.ContractFeeSpending.String(),
