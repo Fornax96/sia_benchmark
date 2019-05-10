@@ -3,6 +3,7 @@ package collector
 import (
 	"time"
 
+	"github.com/NebulousLabs_backup/Sia/types"
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
 
@@ -35,16 +36,40 @@ func CollectMetrics(sc *sia.Client) (metrics Metrics, err error) {
 	if err != nil {
 		return metrics, err
 	}
-	metrics.ContractCountActive = len(contracts.ActiveContracts)
-	metrics.ContractCountInactive = len(contracts.InactiveContracts)
 
+	// Record active hosts
+	activeHosts := make(map[types.SiaPublicKey]struct{})
+	for _, contract := range contracts.ActiveContracts {
+		activeHosts[contract.HostPublicKey] = struct{}{}
+	}
+
+	// Breakout renewed contracts and disabled Contracts
+	var disabledContracts, renewedContracts modules.RenterContracts
+	for _, contract := range contracts.InactiveContracts {
+		if _, ok := activeHosts[contract.HostPublicKey]; ok {
+			renewedContracts = append(renewedContracts, contract)
+			continue
+		}
+		disabledContracts = append(disabledContracts, contract)
+	}
+
+	// Count contracts
+	metrics.ContractCountActive = len(contracts.ActiveContracts)
+	metrics.ContractCountRenewed = len(renewedContracts)
+	metrics.ContractCountDisabled = len(disabledContracts)
+
+	// Sum up spending
 	for _, contract := range append(contracts.ActiveContracts, contracts.InactiveContracts...) {
-		metrics.ContractTotalSize += contract.Size
 		metrics.ContractFeeSpending = metrics.ContractFeeSpending.Add(contract.Fees)
 		metrics.ContractStorageSpending = metrics.ContractStorageSpending.Add(contract.StorageSpending)
 		metrics.ContractUploadSpending = metrics.ContractUploadSpending.Add(contract.UploadSpending)
 		metrics.ContractDownloadSpending = metrics.ContractDownloadSpending.Add(contract.DownloadSpending)
 		metrics.ContractRemainingFunds = metrics.ContractRemainingFunds.Add(contract.RenterFunds)
+	}
+
+	// Sum up total uploaded data
+	for _, contract := range append(contracts.ActiveContracts, disabledContracts...) {
+		metrics.ContractTotalSize += contract.Size
 	}
 
 	// Add up the totals
