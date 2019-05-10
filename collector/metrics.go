@@ -21,7 +21,8 @@ type Metrics struct {
 	FileUploadedBytes          uint64 `csv:"file_uploaded_bytes"`
 
 	ContractCountActive      int            `csv:"contract_count_active"`
-	ContractCountInactive    int            `csv:"contract_count_inactive"`
+	ContractCountRenewed     int            `csv:"contract_count_renewed"`
+	ContractCountDisabled    int            `csv:"contract_count_disabled"`
 	ContractTotalSize        uint64         `csv:"contract_total_size"`
 	ContractTotalSpending    types.Currency `csv:"contract_total_spending"`
 	ContractFeeSpending      types.Currency `csv:"contract_fee_spending"`
