@@ -248,8 +248,16 @@ func main() {
 			log.Error("Error while removing finished uploads: %s", err)
 		}
 
-		// Test conditions not met, continue uploading files
-		if metrics.FileUploadsInProgressCount < conf.MaxConcurrentUploads {
+		// Test conditions not met, continue uploading files. Here files are
+		// uploaded if:
+		//  - There are upload slots available
+		//  - The total size of files is under the success threshold (to prevent
+		//    overshooting)
+		//  - Or the size threshold is disabled
+		if metrics.FileUploadsInProgressCount < conf.MaxConcurrentUploads &&
+			(metrics.FileTotalBytes+(metrics.FileUploadsInProgressCount*conf.FileSize) < conf.SuccessSizeThreshold ||
+				conf.SuccessSizeThreshold == 0) {
+
 			// Upload files concurrently in order to utilize all available CPU
 			// cores
 			wg := sync.WaitGroup{}
