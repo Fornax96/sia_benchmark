@@ -13,6 +13,7 @@ import (
 
 	"github.com/Fornax96/sia_benchmark/collector"
 	"github.com/Fornaxian/config"
+	"github.com/Fornaxian/log"
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 )
 
@@ -93,7 +94,7 @@ func main() {
 		panic(err)
 	}
 	if !dir.IsDir() {
-		fmt.Printf("Upload queue directory %s is not a directory\n", conf.FileUploadsDir)
+		log.Error("Upload queue directory %s is not a directory", conf.FileUploadsDir)
 		os.Exit(1)
 	}
 
@@ -112,7 +113,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Connected to Sia %s (rev %s)\n", version.Version, version.GitRevision)
+	log.Info("Connected to Sia %s (rev %s)", version.Version, version.GitRevision)
 
 	// Open the metrics CSV
 	created := false
@@ -160,7 +161,7 @@ func main() {
 
 		metrics, err := collector.CollectMetrics(sc)
 		if err != nil {
-			fmt.Printf("Error while collecting metrics: %s\n", err)
+			log.Warn("Error while collecting metrics: %s", err)
 			continue
 		}
 
@@ -199,7 +200,7 @@ func main() {
 		// Print test statistics
 		if bwLogIndex%30 == 0 {
 			// Print headers every 30 rows
-			fmt.Printf("%-30s  %-14s  %-5s  %-9s  %-9s  %-13s  %-10s  %-13s  %-13s  %-10s  %-10s\n",
+			log.Info("%-30s  %-14s  %-5s  %-9s  %-9s  %-13s  %-10s  %-13s  %-13s  %-10s  %-10s",
 				"Timestamp",
 				"Latency",
 				"Files",
@@ -216,7 +217,7 @@ func main() {
 		if metrics.ContractTotalSize == 0 {
 			metrics.ContractTotalSize = 1 // Avoid division by zero
 		}
-		fmt.Printf("%-30s  %-14s  %5d  %9d  %9s  %13s  %9.2f%%  %11s/s  %11s/s  %10s  %10s\n",
+		log.Info("%-30s  %-14s  %5d  %9d  %9s  %13s  %9.2f%%  %11s/s  %11s/s  %10s  %10s",
 			metrics.Timestamp.Format("2006-01-02 15:04:05 -0700 MST"),
 			metrics.APILatency,
 			metrics.FileCount,
@@ -239,7 +240,7 @@ func main() {
 		// Clean up finished uploads
 		err = collector.FinishUploads(sc, conf.FileUploadsDir)
 		if err != nil {
-			fmt.Printf("Error while removing finished uploads: %s\n", err)
+			log.Error("Error while removing finished uploads: %s", err)
 		}
 
 		// Test conditions not met, continue uploading files
@@ -258,7 +259,7 @@ func main() {
 						conf.FileSize,
 					)
 					if err != nil {
-						fmt.Printf("Failed to upload file to Sia: %s\n", err)
+						log.Warn("Failed to upload file to Sia: %s", err)
 					}
 					wg.Done()
 				}()
@@ -278,18 +279,18 @@ func testExitCondition(
 
 	// Exit the test if bandwidth falls below the configured threshold
 	if bwAverage < conf.MinUploadRate {
-		fmt.Printf(
-			"Average upload speed of %s/s fell below configured threshold of %s/s\n",
+		log.Warn(
+			"Average upload speed of %s/s fell below configured threshold of %s/s",
 			formatData(bwAverage), formatData(conf.MinUploadRate))
-		fmt.Printf(
-			"The test has ended with a total of %s uploaded in file data and %s uploaded in contract data\n",
+		log.Warn(
+			"The test has ended with a total of %s uploaded in file data and %s uploaded in contract data",
 			formatData(metrics.FileTotalBytes), formatData(metrics.ContractTotalSize))
 
 		if conf.StopSiaOnExit {
-			fmt.Println("Shutting down Sia...")
+			log.Info("Shutting down Sia...")
 			err = sc.DaemonStopGet()
 			if err != nil {
-				fmt.Printf("Error stopping Sia daemon: %s\n", err)
+				log.Error("Error stopping Sia daemon: %s", err)
 			}
 		}
 		os.Exit(0)
@@ -298,18 +299,18 @@ func testExitCondition(
 	// Exit the test if the total file size reaches the configured success
 	// threshold
 	if conf.SuccessSizeThreshold > 0 && metrics.FileTotalBytes >= conf.SuccessSizeThreshold {
-		fmt.Printf(
-			"Total uploaded file size of %s met configured threshold of %s!\n",
+		log.Info(
+			"Total uploaded file size of %s met configured threshold of %s!",
 			formatData(metrics.FileTotalBytes), formatData(conf.SuccessSizeThreshold))
-		fmt.Printf(
-			"The test has ended with a total of %s uploaded in contract data and %s spent\n",
+		log.Info(
+			"The test has ended with a total of %s uploaded in contract data and %s spent",
 			formatData(metrics.ContractTotalSize), metrics.ContractTotalSpending.HumanString())
 
 		if conf.StopSiaOnExit {
-			fmt.Println("Shutting down Sia...")
+			log.Info("Shutting down Sia...")
 			err = sc.DaemonStopGet()
 			if err != nil {
-				fmt.Printf("Error stopping Sia daemon: %s\n", err)
+				log.Error("Error stopping Sia daemon: %s", err)
 			}
 		}
 		os.Exit(0)

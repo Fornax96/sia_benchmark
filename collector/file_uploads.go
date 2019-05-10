@@ -1,12 +1,12 @@
 package collector
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/Fornaxian/log"
 	"gitlab.com/NebulousLabs/Sia/modules"
 
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
@@ -72,7 +72,7 @@ func FinishUploads(sc *sia.Client, uploadsDir string) error {
 		}
 
 		if siafile.File.UploadProgress > 99.9 { // comparing floats.. dangerous
-			fmt.Printf("File '%s' is done uploading, removing local copy\n", file.Name())
+			log.Debug("File '%s' is done uploading, removing local copy", file.Name())
 			// Upload is done, remove source file
 			err = os.Remove(uploadsDir + "/" + file.Name())
 			if err != nil {
