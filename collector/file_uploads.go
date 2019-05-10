@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -68,7 +69,7 @@ func FinishUploads(sc *sia.Client, uploadsDir string) error {
 	for _, file := range files {
 		siafile, err := sc.RenterFileGet(newSiaPath("benchmark/" + file.Name()))
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting '%s' from Sia: %s", "benchmark/"+file.Name(), err)
 		}
 
 		if siafile.File.UploadProgress > 99.99 && siafile.File.MaxHealthPercent > 99.99 {
@@ -76,7 +77,7 @@ func FinishUploads(sc *sia.Client, uploadsDir string) error {
 			// Upload is done, remove source file
 			err = os.Remove(uploadsDir + "/" + file.Name())
 			if err != nil {
-				return err
+				return fmt.Errorf("error removing '%s': %s", uploadsDir+"/"+file.Name(), err)
 			}
 		}
 	}
