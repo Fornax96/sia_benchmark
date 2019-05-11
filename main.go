@@ -186,8 +186,8 @@ func main() {
 		}
 
 		// Overwrite the oldest digit in the bandwith log array
-		if lastSize != 0 && lastSize < metrics.ContractTotalSize {
-			bwLog[bwLogIndex] = (metrics.ContractTotalSize - lastSize) / 60
+		if lastSize != 0 && lastSize <= metrics.ContractTotalSize {
+			bwLog[bwLogIndex] = (metrics.ContractTotalSize - lastSize) / uint64(conf.MeasurementInterval)
 		}
 		lastSize = metrics.ContractTotalSize
 
