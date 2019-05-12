@@ -36,6 +36,7 @@ type Configuration struct {
 	MaxConcurrentUploads uint64 `toml:"max_concurrent_uploads"`
 	MinUploadRate        uint64 `toml:"min_upload_rate"`
 	MeasurementInterval  uint   `toml:"measurement_interval"`
+	MeasurementPeriod    uint   `toml:"measurement_period"`
 
 	// How many bytes the Sia node needs to upload before the test is
 	// successful. If this is 0 the test will go on until the bandwidth
@@ -69,7 +70,14 @@ file_parity_pieces     = 20
 file_size              = 1000000000 # This is 1 GB
 max_concurrent_uploads = 10
 min_upload_rate        = 1000000 # 1 MB per second
-measurement_interval   = 60 # seconds
+
+# How often to poll the Sia API for new metrics
+measurement_interval   = 60 # one minute
+
+# Used for averaging the historic bandwidth numbers. If min upload rate is
+# 1 MB/s and the measurement period is two hours the test will only end if
+# bandwidth drops below 1 MB/s for two hours
+measurement_period     = 7200 # two hours
 
 # How many bytes the Sia node needs to upload before the test is successful. If
 # this is 0 the test will go on until the bandwidth thtreshold is crossed
@@ -157,11 +165,11 @@ func main() {
 	// we write the metrics to the CSV
 	var lastSize uint64
 
-	// The bandwidth log saves bandwidth usage over the period of two hours. The
-	// numbers in this array are averaged every round and stored in bwAverage to
-	// get the two-hour average bandwidth consumption. This number is used for
-	// determining if the exit condition was reached.
-	var bwLog = make([]uint64, 7200/conf.MeasurementInterval)
+	// The bandwidth log saves bandwidth usage over the configured measurement
+	// period. The numbers in this array are averaged every round and stored in
+	// bwAverage to get the average bandwidth consumption. This number is used
+	// for determining if the exit condition was reached.
+	var bwLog = make([]uint64, conf.MeasurementPeriod/conf.MeasurementInterval)
 	var bwLogIndex = -1
 	var bwAverage uint64
 	var bwFirstCycle = true
