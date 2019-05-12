@@ -19,15 +19,11 @@ func CollectMetrics(sc *sia.Client) (metrics Metrics, err error) {
 		return metrics, err
 	}
 	for _, file := range files.Files {
+		metrics.FileTotalBytes += uint64(float64(file.Filesize) * (file.UploadProgress / 100))
 		metrics.FileCount++
 		metrics.FileUploadedBytes += file.UploadedBytes
 		if file.UploadProgress < 100 {
 			metrics.FileUploadsInProgressCount++
-		} else {
-			// Only include finished files because if we include unfinished
-			// files the results will be skewed in sia's favour and the
-			// efficiency numbers will be incorrect
-			metrics.FileTotalBytes += file.Filesize
 		}
 	}
 
