@@ -156,10 +156,16 @@ func main() {
 	// We store all this in a Metrics struct. When the information is complete
 	// we write the metrics to the CSV
 	var lastSize uint64
-	var bwLog = make([]uint64, 3600/conf.MeasurementInterval)
+
+	// The bandwidth log saves bandwidth usage over the period of two hours. The
+	// numbers in this array are averaged every round and stored in bwAverage to
+	// get the two-hour average bandwidth consumption. This number is used for
+	// determining if the exit condition was reached.
+	var bwLog = make([]uint64, 7200/conf.MeasurementInterval)
 	var bwLogIndex = -1
 	var bwAverage uint64
 	var bwFirstCycle = true
+	var uploading = false
 	for {
 		// Sleep until the next full minute
 		time.Sleep(time.Until(time.Now().Add(interval).Truncate(interval)))
@@ -250,34 +256,43 @@ func main() {
 
 		// Test conditions not met, continue uploading files. Here files are
 		// uploaded if:
+		//  - There are not already files being uploaded
 		//  - There are upload slots available
+		//  - There are enough contracts to support the file
 		//  - The total size of files is under the success threshold (to prevent
-		//    overshooting)
-		//  - Or the size threshold is disabled
-		if metrics.FileUploadsInProgressCount < conf.MaxConcurrentUploads &&
+		//    overshooting). Or the size threshold is disabled
+		if !uploading &&
+			metrics.FileUploadsInProgressCount < conf.MaxConcurrentUploads &&
+			uint64(metrics.ContractCountActive) >= conf.FileDataPieces+conf.FileParityPieces &&
 			(metrics.FileTotalBytes+(metrics.FileUploadsInProgressCount*conf.FileSize) < conf.SuccessSizeThreshold ||
 				conf.SuccessSizeThreshold == 0) {
+			uploading = true
 
-			// Upload files concurrently in order to utilize all available CPU
-			// cores
-			wg := sync.WaitGroup{}
-			for i := uint64(0); i < conf.MaxConcurrentUploads-metrics.FileUploadsInProgressCount; i++ {
-				wg.Add(1)
-				go func() {
-					err = collector.UploadFile(
-						sc,
-						conf.FileUploadsDir+"/"+strconv.Itoa(fastrand.Intn(999999999))+".dat",
-						conf.FileDataPieces,
-						conf.FileParityPieces,
-						conf.FileSize,
-					)
-					if err != nil {
-						log.Warn("Failed to upload file to Sia: %s", err)
-					}
-					wg.Done()
-				}()
-			}
-			wg.Wait()
+			// This function can take a long time to run, so in order to not
+			// hold up the metrics loop is runs in a separate thread
+			go func() {
+				// Upload files concurrently in order to utilize all available
+				// CPU cores
+				wg := sync.WaitGroup{}
+				for i := uint64(0); i < conf.MaxConcurrentUploads-metrics.FileUploadsInProgressCount; i++ {
+					wg.Add(1)
+					go func() {
+						err = collector.UploadFile(
+							sc,
+							conf.FileUploadsDir+"/"+strconv.Itoa(fastrand.Intn(999999999))+".dat",
+							conf.FileDataPieces,
+							conf.FileParityPieces,
+							conf.FileSize,
+						)
+						if err != nil {
+							log.Warn("Failed to upload file to Sia: %s", err)
+						}
+						wg.Done()
+					}()
+				}
+				wg.Wait()
+				uploading = false
+			}()
 		}
 	}
 }
