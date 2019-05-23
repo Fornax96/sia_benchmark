@@ -257,9 +257,11 @@ func main() {
 		}
 
 		// Clean up finished uploads
-		err = collector.FinishUploads(sc, conf.FileUploadsDir)
-		if err != nil {
-			log.Error("Error while removing finished uploads: %s", err)
+		if !uploading {
+			err = collector.FinishUploads(sc, conf.FileUploadsDir)
+			if err != nil {
+				log.Error("Error while removing finished uploads: %s", err)
+			}
 		}
 
 		// Test conditions not met, continue uploading files. Here files are
