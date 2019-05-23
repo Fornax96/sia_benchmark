@@ -22,7 +22,7 @@ func CollectMetrics(sc *sia.Client) (metrics Metrics, err error) {
 		metrics.FileTotalBytes += uint64(float64(file.Filesize) * (file.UploadProgress / 100))
 		metrics.FileCount++
 		metrics.FileUploadedBytes += file.UploadedBytes
-		if file.UploadProgress < 100 {
+		if file.UploadProgress < 100 && file.OnDisk {
 			metrics.FileUploadsInProgressCount++
 		}
 	}
