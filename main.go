@@ -24,6 +24,8 @@ type Configuration struct {
 	SiaAPIPassword  string `toml:"sia_api_password"`
 	SiaAPIUserAgent string `toml:"sia_api_user_agent"`
 
+	WatchOnly bool `toml:"watch_only"`
+
 	// Allowance settings
 	Allowance        int    `toml:"allowance"`
 	AllowancePeriod  int    `toml:"allowance_period"`
@@ -58,6 +60,10 @@ const defaultConfig = `# Sia benchmark tool configuration
 sia_api_url            = "127.0.0.1:9980"
 sia_api_password       = ""
 sia_api_user_agent     = "Sia-Agent"
+
+# if watch_only is enabled the benchmark tool will not do any uploading. It will
+# only monitor the Sia daemon. It will also never check the exit condition
+watch_only             = false
 
 # Allowance settings
 allowance              = 1000 # SC
@@ -103,16 +109,16 @@ func main() {
 
 	// Check if uploads directory exists
 	dir, err := os.Stat(conf.FileUploadsDir)
-	if err != nil {
+	if !conf.WatchOnly && err != nil {
 		panic(err)
 	}
-	if !dir.IsDir() {
+	if !conf.WatchOnly && !dir.IsDir() {
 		log.Error("Upload queue directory %s is not a directory", conf.FileUploadsDir)
 		os.Exit(1)
 	}
 
 	conf.FileUploadsDir, err = filepath.Abs(conf.FileUploadsDir)
-	if err != nil {
+	if !conf.WatchOnly && err != nil {
 		panic(err)
 	}
 
@@ -200,10 +206,10 @@ func main() {
 		}
 
 		// Overwrite the oldest digit in the bandwith log array
-		if lastSize != 0 && lastSize <= metrics.ContractTotalSize {
-			bwLog[bwLogIndex] = (metrics.ContractTotalSize - lastSize) / uint64(conf.MeasurementInterval)
+		if lastSize != 0 && lastSize <= metrics.ContractSizeTotal {
+			bwLog[bwLogIndex] = (metrics.ContractSizeTotal - lastSize) / uint64(conf.MeasurementInterval)
 		}
-		lastSize = metrics.ContractTotalSize
+		lastSize = metrics.ContractSizeTotal
 
 		// Calculate average bandwidth
 		bwAverage = 0
@@ -233,8 +239,8 @@ func main() {
 				"Unspent",
 			)
 		}
-		if metrics.ContractTotalSize == 0 {
-			metrics.ContractTotalSize = 1 // Avoid division by zero
+		if metrics.ContractSizeTotal == 0 {
+			metrics.ContractSizeTotal = 1 // Avoid division by zero
 		}
 		log.Info("%-30s  %-14s  %5d  %9d  %9s  %13s  %9.2f%%  %11s/s  %11s/s  %10s  %10s",
 			metrics.Timestamp.Format("2006-01-02 15:04:05 -0700 MST"),
@@ -242,34 +248,37 @@ func main() {
 			metrics.FileCount,
 			metrics.FileUploadsInProgressCount,
 			formatData(metrics.FileTotalBytes),
-			formatData(metrics.ContractTotalSize),
-			(float64(metrics.FileTotalBytes)/float64(metrics.ContractTotalSize))*100,
+			formatData(metrics.ContractSizeTotal),
+			(float64(metrics.FileTotalBytes)/float64(metrics.ContractSizeTotal))*100,
 			formatData(bwLog[bwLogIndex]),
 			formatData(bwAverage),
-			metrics.ContractTotalSpending.HumanString(),
-			metrics.ContractRemainingFunds.HumanString(),
+			metrics.ContractSpendingTotal.HumanString(),
+			metrics.ContractFundsRemainingTotal.HumanString(),
 		)
 
 		// This function exits the program if the exit conditions are met. The
 		// test cannot end within one hour of starting
-		if !bwFirstCycle {
+		if !bwFirstCycle && !conf.WatchOnly {
 			testExitCondition(metrics, bwAverage, conf, sc)
 		}
 
 		// Clean up finished uploads
-		err = collector.FinishUploads(sc, conf.FileUploadsDir)
-		if err != nil {
-			log.Error("Error while removing finished uploads: %s", err)
+		if !conf.WatchOnly {
+			err = collector.FinishUploads(sc, conf.FileUploadsDir)
+			if err != nil {
+				log.Error("Error while removing finished uploads: %s", err)
+			}
 		}
 
 		// Test conditions not met, continue uploading files. Here files are
 		// uploaded if:
 		//  - There are not already files being uploaded
+		//  - Watch Only mode is disabled
 		//  - There are upload slots available
 		//  - There are enough contracts to support the file
 		//  - The total size of files is under the success threshold (to prevent
 		//    overshooting). Or the size threshold is disabled
-		if !uploading &&
+		if !uploading && !conf.WatchOnly &&
 			metrics.FileUploadsInProgressCount < conf.MaxConcurrentUploads &&
 			uint64(metrics.ContractCountActive) >= conf.FileDataPieces+conf.FileParityPieces &&
 			(metrics.FileTotalBytes+(metrics.FileUploadsInProgressCount*conf.FileSize) < conf.SuccessSizeThreshold ||
@@ -320,7 +329,7 @@ func testExitCondition(
 			formatData(bwAverage), formatData(conf.MinUploadRate))
 		log.Warn(
 			"The test has ended with a total of %s uploaded in file data and %s uploaded in contract data",
-			formatData(metrics.FileTotalBytes), formatData(metrics.ContractTotalSize))
+			formatData(metrics.FileTotalBytes), formatData(metrics.ContractSizeTotal))
 
 		if conf.StopSiaOnExit {
 			log.Info("Shutting down Sia...")
@@ -340,7 +349,7 @@ func testExitCondition(
 			formatData(metrics.FileTotalBytes), formatData(conf.SuccessSizeThreshold))
 		log.Info(
 			"The test has ended with a total of %s uploaded in contract data and %s spent",
-			formatData(metrics.ContractTotalSize), metrics.ContractTotalSpending.HumanString())
+			formatData(metrics.ContractSizeTotal), metrics.ContractSpendingTotal.HumanString())
 
 		if conf.StopSiaOnExit {
 			log.Info("Shutting down Sia...")
