@@ -263,7 +263,7 @@ func main() {
 		}
 
 		// Clean up finished uploads
-		if !conf.WatchOnly {
+		if !conf.WatchOnly && !uploading {
 			err = collector.FinishUploads(sc, conf.FileUploadsDir)
 			if err != nil {
 				log.Error("Error while removing finished uploads: %s", err)
@@ -272,13 +272,13 @@ func main() {
 
 		// Test conditions not met, continue uploading files. Here files are
 		// uploaded if:
-		//  - There are not already files being uploaded
 		//  - Watch Only mode is disabled
+		//  - There are not already files being uploaded
 		//  - There are upload slots available
 		//  - There are enough contracts to support the file
 		//  - The total size of files is under the success threshold (to prevent
 		//    overshooting). Or the size threshold is disabled
-		if !uploading && !conf.WatchOnly &&
+		if !conf.WatchOnly && !uploading &&
 			metrics.FileUploadsInProgressCount < conf.MaxConcurrentUploads &&
 			uint64(metrics.ContractCountActive) >= conf.FileDataPieces+conf.FileParityPieces &&
 			(metrics.FileTotalBytes+(metrics.FileUploadsInProgressCount*conf.FileSize) < conf.SuccessSizeThreshold ||
