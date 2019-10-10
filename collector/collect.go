@@ -87,7 +87,6 @@ func CollectMetrics(sc *sia.Client) (metrics Metrics, err error) {
 		metrics.ContractDownloadSpendingDisabled = metrics.ContractDownloadSpendingDisabled.Add(contract.DownloadSpending)
 	}
 	for _, contract := range contracts.ExpiredContracts {
-		addTotals(contract, false)
 		metrics.ContractCountExpired++
 		metrics.ContractSizeExpired += contract.Size
 		metrics.ContractFundsRemainingExpired = metrics.ContractFundsRemainingExpired.Add(contract.RenterFunds)
@@ -97,7 +96,6 @@ func CollectMetrics(sc *sia.Client) (metrics Metrics, err error) {
 		metrics.ContractDownloadSpendingExpired = metrics.ContractDownloadSpendingExpired.Add(contract.DownloadSpending)
 	}
 	for _, contract := range contracts.ExpiredRefreshedContracts {
-		addTotals(contract, false)
 		metrics.ContractCountExpiredRefreshed++
 		metrics.ContractSizeExpiredRefreshed += contract.Size
 		metrics.ContractFundsRemainingExpiredRefreshed = metrics.ContractFundsRemainingExpiredRefreshed.Add(contract.RenterFunds)
