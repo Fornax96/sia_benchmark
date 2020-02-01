@@ -1,11 +1,11 @@
 package collector
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/Fornaxian/log"
 	"gitlab.com/NebulousLabs/Sia/modules"
@@ -14,8 +14,10 @@ import (
 	"gitlab.com/NebulousLabs/fastrand"
 )
 
-func newSiaPath(path string) (siaPath modules.SiaPath) {
-	siaPath, err := modules.NewSiaPath(path)
+func newSiaPath(name string) (siaPath modules.SiaPath) {
+	siaPath, err := modules.NewSiaPath(
+		string(name[0]) + "/" + string(name[1]) + "/" + name,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -26,11 +28,14 @@ func newSiaPath(path string) (siaPath modules.SiaPath) {
 // uploads it to Sia
 func UploadFile(
 	sc *sia.Client,
-	path string,
+	dir string,
 	dataPieces, parityPieces uint64,
 	size uint64,
-) error {
-	file, err := os.Create(path)
+) (err error) {
+	var name = hex.EncodeToString(fastrand.Bytes(16)) + ".dat"
+	var localPath = dir + "/" + name
+
+	file, err := os.Create(localPath)
 	if err != nil {
 		return err
 	}
@@ -38,20 +43,19 @@ func UploadFile(
 	_, err = io.CopyN(file, fastrand.Reader, int64(size))
 	file.Close()
 	if err != nil {
-		os.Remove(path) // Clean up on error
+		os.Remove(localPath) // Clean up on error
 		return err
 	}
 
 	// We have a file of `size` bytes at `path`. Now upload it to Sia
 
-	err = sc.RenterUploadPost(
-		path,
-		newSiaPath("benchmark/"+filepath.Base(path)),
+	if err = sc.RenterUploadPost(
+		dir+"/"+name,
+		newSiaPath(name),
 		dataPieces,
 		parityPieces,
-	)
-	if err != nil {
-		os.Remove(path) // Clean up on error
+	); err != nil {
+		os.Remove(localPath) // Clean up on error
 		return err
 	}
 
@@ -67,9 +71,9 @@ func FinishUploads(sc *sia.Client, uploadsDir string) error {
 	}
 
 	for _, file := range files {
-		siafile, err := sc.RenterFileGet(newSiaPath("benchmark/" + file.Name()))
+		siafile, err := sc.RenterFileGet(newSiaPath(file.Name()))
 		if err != nil {
-			return fmt.Errorf("error getting '%s' from Sia: %s", "benchmark/"+file.Name(), err)
+			return fmt.Errorf("error getting '%s' from Sia: %s", file.Name(), err)
 		}
 
 		if siafile.File.UploadProgress >= 100 && siafile.File.MaxHealthPercent >= 100 {

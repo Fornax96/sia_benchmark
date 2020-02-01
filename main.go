@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
-
-	"gitlab.com/NebulousLabs/fastrand"
 
 	"github.com/Fornax96/sia_benchmark/collector"
 	"github.com/Fornaxian/config"
@@ -225,7 +222,7 @@ func main() {
 		// Print test statistics
 		if bwLogIndex%30 == 0 {
 			// Print headers every 30 rows
-			log.Info("%-30s  %-14s  %-5s  %-9s  %-9s  %-13s  %-10s  %-13s  %-13s  %-10s  %-10s",
+			fmt.Printf("%-30s  %-14s  %-5s  %-9s  %-9s  %-13s  %-10s  %-13s  %-13s  %-10s  %-10s\n",
 				"Timestamp",
 				"Latency",
 				"Files",
@@ -242,18 +239,18 @@ func main() {
 		if metrics.ContractSizeTotal == 0 {
 			metrics.ContractSizeTotal = 1 // Avoid division by zero
 		}
-		log.Info("%-30s  %-14s  %5d  %9d  %9s  %13s  %9.2f%%  %11s/s  %11s/s  %10s  %10s",
-			metrics.Timestamp.Format("2006-01-02 15:04:05 -0700 MST"),
-			metrics.APILatency,
-			metrics.FileCount,
-			metrics.FileUploadsInProgressCount,
-			formatData(metrics.FileTotalBytes),
-			formatData(metrics.ContractSizeTotal),
-			(float64(metrics.FileTotalBytes)/float64(metrics.ContractSizeTotal))*100,
-			formatData(bwLog[bwLogIndex]),
-			formatData(bwAverage),
-			metrics.ContractSpendingTotal.HumanString(),
-			metrics.ContractFundsRemainingTotal.HumanString(),
+		fmt.Printf("%-30s  %-14s  %5d  %9d  %9s  %13s  %9.2f%%  %11s/s  %11s/s  %10s  %10s\n",
+			metrics.Timestamp.Format("2006-01-02 15:04:05 -0700 MST"), // Timestamp
+			metrics.APILatency,                    // Latency
+			metrics.FileCount,                     // Files
+			metrics.FileUploadsInProgressCount,    // Uploading
+			formatData(metrics.FileTotalBytes),    // File Size
+			formatData(metrics.ContractSizeTotal), // Contract Size
+			(float64(metrics.FileTotalBytes)/float64(metrics.ContractSizeTotal))*100, // Efficiency
+			formatData(bwLog[bwLogIndex]),                     // Current speed
+			formatData(bwAverage),                             // Avg. Speed
+			metrics.ContractSpendingTotal.HumanString(),       // Spent
+			metrics.ContractFundsRemainingTotal.HumanString(), // Unspent
 		)
 
 		// This function exits the program if the exit conditions are met. The
@@ -296,7 +293,7 @@ func main() {
 					go func() {
 						err = collector.UploadFile(
 							sc,
-							conf.FileUploadsDir+"/"+strconv.Itoa(fastrand.Intn(999999999))+".dat",
+							conf.FileUploadsDir,
 							conf.FileDataPieces,
 							conf.FileParityPieces,
 							conf.FileSize,
