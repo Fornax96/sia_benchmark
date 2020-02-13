@@ -9,6 +9,7 @@ import (
 
 	"github.com/Fornaxian/log"
 	"gitlab.com/NebulousLabs/Sia/modules"
+	"gitlab.com/NebulousLabs/Sia/node/api"
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 	"gitlab.com/NebulousLabs/fastrand"
 	"lukechampine.com/frand"
@@ -70,13 +71,18 @@ func FinishUploads(sc *sia.Client, uploadsDir string) error {
 		return err
 	}
 
+	var sfile api.RenterFile
 	for _, file := range files {
-		siafile, err := sc.RenterFileGet(newSiaPath(file.Name()))
-		if err != nil {
+		if sfile, err = sc.RenterFileGet(newSiaPath(file.Name())); err != nil {
+			if err.Error() == "path does not exist" {
+				os.Remove(uploadsDir + "/" + file.Name())
+				continue
+			}
+
 			return fmt.Errorf("error getting '%s' from Sia: %s", file.Name(), err)
 		}
 
-		if siafile.File.UploadProgress >= 100 && siafile.File.MaxHealthPercent >= 100 {
+		if sfile.File.UploadProgress >= 100 && sfile.File.MaxHealthPercent >= 100 {
 			log.Debug("File '%s' is done uploading, removing local copy", file.Name())
 			// Upload is done, remove source file
 			if err = os.Remove(uploadsDir + "/" + file.Name()); err != nil {
