@@ -9,9 +9,9 @@ import (
 
 	"github.com/Fornaxian/log"
 	"gitlab.com/NebulousLabs/Sia/modules"
-
 	sia "gitlab.com/NebulousLabs/Sia/node/api/client"
 	"gitlab.com/NebulousLabs/fastrand"
+	"lukechampine.com/frand"
 )
 
 func newSiaPath(name string) (siaPath modules.SiaPath) {
@@ -40,7 +40,7 @@ func UploadFile(
 		return err
 	}
 
-	_, err = io.CopyN(file, fastrand.Reader, int64(size))
+	_, err = io.CopyN(file, frand.Reader, int64(size))
 	file.Close()
 	if err != nil {
 		os.Remove(localPath) // Clean up on error
@@ -79,8 +79,7 @@ func FinishUploads(sc *sia.Client, uploadsDir string) error {
 		if siafile.File.UploadProgress >= 100 && siafile.File.MaxHealthPercent >= 100 {
 			log.Debug("File '%s' is done uploading, removing local copy", file.Name())
 			// Upload is done, remove source file
-			err = os.Remove(uploadsDir + "/" + file.Name())
-			if err != nil {
+			if err = os.Remove(uploadsDir + "/" + file.Name()); err != nil {
 				return fmt.Errorf("error removing '%s': %s", uploadsDir+"/"+file.Name(), err)
 			}
 		}
