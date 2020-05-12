@@ -96,10 +96,11 @@ logging_verbosity      = 3 # 4 = debug, 3 = info, 2 = warning, 1 = error
 `
 
 func main() {
+	var err error
+
 	// Load the configuration
 	var conf = Configuration{}
-	_, err := config.New(defaultConfig, "", "benchmark.toml", &conf, true)
-	if err != nil {
+	if _, err = config.New(defaultConfig, "", "benchmark.toml", &conf, true); err != nil {
 		panic(err)
 	}
 	log.SetLogLevel(conf.LoggingVerbosity)
@@ -151,8 +152,7 @@ func main() {
 
 	if created {
 		// New file, print headers
-		err = csvWriter.Write(collector.MetricsHeaders())
-		if err != nil {
+		if err = csvWriter.Write(collector.MetricsHeaders()); err != nil {
 			panic(err)
 		}
 		csvWriter.Flush()
@@ -168,6 +168,9 @@ func main() {
 	// we write the metrics to the CSV
 	var lastSize uint64
 
+	// This struct saves all connected metrics from the siad API
+	var metrics collector.Metrics
+
 	// The bandwidth log saves bandwidth usage over the configured measurement
 	// period. The numbers in this array are averaged every round and stored in
 	// bwAverage to get the average bandwidth consumption. This number is used
@@ -181,14 +184,12 @@ func main() {
 		// Sleep until the next full minute
 		time.Sleep(time.Until(time.Now().Add(interval).Truncate(interval)))
 
-		metrics, err := collector.CollectMetrics(sc)
-		if err != nil {
+		if metrics, err = collector.CollectMetrics(sc); err != nil {
 			log.Warn("Error while collecting metrics: %s", err)
 			continue
 		}
 
-		err = metrics.WriteCSV(csvWriter)
-		if err != nil {
+		if err = metrics.WriteCSV(csvWriter); err != nil {
 			panic(fmt.Errorf("error while writing to CSV: %s", err))
 		}
 		if err = csvWriter.Error(); err != nil {
@@ -261,8 +262,7 @@ func main() {
 
 		// Clean up finished uploads
 		if !conf.WatchOnly && !uploading {
-			err = collector.FinishUploads(sc, conf.FileUploadsDir)
-			if err != nil {
+			if err = collector.FinishUploads(sc, conf.FileUploadsDir); err != nil {
 				log.Error("Error while removing finished uploads: %s", err)
 			}
 		}
@@ -291,14 +291,13 @@ func main() {
 				for i := uint64(0); i < conf.MaxConcurrentUploads-metrics.FileUploadsInProgressCount; i++ {
 					wg.Add(1)
 					go func() {
-						err = collector.UploadFile(
+						if err = collector.UploadFile(
 							sc,
 							conf.FileUploadsDir,
 							conf.FileDataPieces,
 							conf.FileParityPieces,
 							conf.FileSize,
-						)
-						if err != nil {
+						); err != nil {
 							log.Warn("Failed to upload file to Sia: %s", err)
 						}
 						wg.Done()
@@ -330,8 +329,7 @@ func testExitCondition(
 
 		if conf.StopSiaOnExit {
 			log.Info("Shutting down Sia...")
-			err = sc.DaemonStopGet()
-			if err != nil {
+			if err = sc.DaemonStopGet(); err != nil {
 				log.Error("Error stopping Sia daemon: %s", err)
 			}
 		}
@@ -350,8 +348,7 @@ func testExitCondition(
 
 		if conf.StopSiaOnExit {
 			log.Info("Shutting down Sia...")
-			err = sc.DaemonStopGet()
-			if err != nil {
+			if err = sc.DaemonStopGet(); err != nil {
 				log.Error("Error stopping Sia daemon: %s", err)
 			}
 		}
