@@ -4,3 +4,4 @@ main
 benchmark.toml
 upload_queue
 upload_queue/*
+go.sum

@@ -16,7 +16,7 @@ import (
 
 func newSiaPath(name string) (siaPath modules.SiaPath) {
 	siaPath, err := modules.NewSiaPath(
-		string(name[0]) + "/" + string(name[1]) + "/" + name,
+		string(name[0:2]) + "/" + string(name[2]) + "/" + name,
 	)
 	if err != nil {
 		panic(err)
